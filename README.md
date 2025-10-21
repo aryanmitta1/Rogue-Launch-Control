@@ -89,7 +89,3 @@ You can modify the following parameters in the code:
 - matplotlib >= 3.5.0
 - numpy >= 1.21.0
 - pillow >= 9.0.0
-
-## License
-
-This project is for educational and demonstration purposes.
