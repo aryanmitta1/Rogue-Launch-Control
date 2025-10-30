@@ -4,7 +4,10 @@ A comprehensive GUI application for rocket launch control with real-time monitor
 
 ## Features
 
-GUI can monitor pressure in real time with a live graph (currently, it's random numbers). There is a display for apogee, height, velocity, and flight time as well (let me know if I should add more). There is a color-coded status for system readiness. 10Hz update frequency (100ms intervals).
+GUI can monitor pressure in real time with a live graph . There is a display for apogee, height, velocity, and flight time as well (let me know if I should add more). There is a color-coded status for system readiness. 10Hz update frequency (100ms intervals). Currently, only pressure is implemented to be read from an actual input stream from a receiver microcontroller. The other values are set to be random until input for those values is implemented.
+
+This python program expects a specific format of Serial input from a receiver microcontroller which actually sends and receives data from the rocket.
+(ex: OUTPUT: 100,200,300 where the first value gets taken as pressure, second and third as coordinates). This program is reponsible for parsing the receiver's serial output and displaying the telemtry data nicely.
 
 Features:
 - Pressure vs Time graph
