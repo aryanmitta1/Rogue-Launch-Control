@@ -81,6 +81,7 @@ class LaunchControlGUI:
         self.height_data = []
         self.max_pressure = 1000  # PSI
         self.current_pressure = 0
+        self.current_altitude = 0  # Current altitude from serial
         self.temperature = 25.0  # degrees Celsius
         self.apogee = 0
         self.launch_time = None
@@ -234,55 +235,51 @@ class LaunchControlGUI:
         data_grid.pack(pady=10, padx=15, fill=tk.BOTH, expand=True)
         
         data_points = [
-            ("Temperature", "°C", 'accent_orange'),
-            ("Pressure", "PSI", 'accent_cyan'),
-            ("Altitude", "ft", 'text_primary'),
-            ("Apogee", "ft", 'accent_blue'),
-            ("Time", "s", 'text_secondary'),
-            ("Velocity", "ft/s", 'text_secondary'),
-            ("GPS Latitude", "", 'accent_purple'),
-            ("GPS Longitude", "", 'accent_purple')
+            ("temperature", 'accent_orange'),
+            ("pressure", 'accent_cyan'),
+            ("altitude", 'text_primary'),
+            ("apogee", 'accent_blue'),
+            ("time", 'text_secondary'),
+            ("velocity", 'text_secondary'),
+            ("latitude", 'accent_purple'),
+            ("longitude", 'accent_purple')
         ]
         
-        for i, (name, unit, color_key) in enumerate(data_points):
+        for i, (name, color_key) in enumerate(data_points):
             data_grid.rowconfigure(i, weight=1)
             
-            # Label - smaller, muted
-            label = tk.Label(data_grid, text=name.upper(), font=self.fonts['heading'], 
-                           fg=self.colors['text_muted'], bg=self.colors['bg_tertiary'], anchor='w')
-            label.grid(row=i, column=0, sticky='w', pady=4, padx=(5, 10))
-            
-            # Value - larger, bold
-            value_label = tk.Label(data_grid, text="0" + (" " + unit if unit else ""), 
-                                  font=self.fonts['data_value'], fg=self.colors['text_primary'], 
-                                  bg=self.colors['bg_tertiary'], anchor='e')
-            value_label.grid(row=i, column=1, sticky='e', pady=4)
+            # Single label showing "name: value" in plain format
+            label_text = name.lower() + ": "
+            value_label = tk.Label(data_grid, text=label_text + "0", 
+                                  font=self.fonts['body'], fg=self.colors['text_primary'], 
+                                  bg=self.colors['bg_tertiary'], anchor='w')
+            value_label.grid(row=i, column=0, sticky='w', pady=4, padx=(5, 10))
             
             # Store references and set colors
-            if name == "Temperature":
+            if name == "temperature":
                 self.temperature_label = value_label
                 value_label.config(fg=self.colors['accent_orange'])
-            elif name == "Pressure":
+            elif name == "pressure":
                 self.pressure_label = value_label
                 value_label.config(fg=self.colors['accent_cyan'])
-            elif name == "Altitude":
+            elif name == "altitude":
                 self.height_label = value_label
                 value_label.config(fg=self.colors['accent_blue'])
-            elif name == "Apogee":
+            elif name == "apogee":
                 self.apogee_label = value_label
                 value_label.config(fg=self.colors['text_primary'])
-            elif name == "Time":
+            elif name == "time":
                 self.time_label = value_label
-            elif name == "Velocity":
+            elif name == "velocity":
                 self.velocity_label = value_label
-            elif name == "GPS Latitude":
+            elif name == "latitude":
                 self.gps_lat_label = value_label
                 value_label.config(fg=self.colors['accent_purple'])
-            elif name == "GPS Longitude":
+            elif name == "longitude":
                 self.gps_lon_label = value_label
                 value_label.config(fg=self.colors['accent_purple'])
                 
-        data_grid.columnconfigure(1, weight=1)
+        data_grid.columnconfigure(0, weight=1)
 
     def setup_graphs_and_gauges(self, parent):
         """Set up graphs and GPS map"""
@@ -353,6 +350,8 @@ class LaunchControlGUI:
     def read_serial_data(self):
         """
         Read data from the serial port in a separate thread
+        Expected format: <pressure,altitude,temperature,latitude,longitude>
+        Example: <6,6,8,8,7>
         """
         print("--SERIAL WORKER ON--")
         try:
@@ -363,11 +362,33 @@ class LaunchControlGUI:
                         # Read a line from the Arduino
                         line = ser.readline().decode('utf-8').strip()
                         if line:
-                            # Update the shared current_pressure variable
-                            # The other thread (simulate_data) will read this
-                            self.current_pressure = float(line) 
-                            if self.serial_error: # Clear error if we get good data
-                                self.serial_error = None
+                            # Parse format: <pressure,altitude,temperature,latitude,longitude>
+                            if line.startswith('<') and line.endswith('>'):
+                                # Remove angle brackets and split by comma
+                                data_str = line[1:-1]  # Remove '<' and '>'
+                                values = data_str.split(',')
+                                
+                                if len(values) == 5:
+                                    # Extract and update all variables
+                                    self.current_pressure = float(values[0])
+                                    self.current_altitude = float(values[1])
+                                    self.temperature = float(values[2])
+                                    self.gps_latitude = float(values[3])
+                                    self.gps_longitude = float(values[4])
+                                    self.gps_valid = True
+                                    
+                                    if self.serial_error: # Clear error if we get good data
+                                        self.serial_error = None
+                                else:
+                                    print(f"Serial data format error: Expected 5 values, got {len(values)} - Received: '{line}'")
+                            else:
+                                # Fallback for old format (single value)
+                                try:
+                                    self.current_pressure = float(line)
+                                    if self.serial_error:
+                                        self.serial_error = None
+                                except ValueError:
+                                    print(f"Serial data format error: Invalid format - Received: '{line}'")
                     except (UnicodeDecodeError, ValueError) as e:
                         print(f"Serial data error: {e} - Received: '{line}'")
                 else:
@@ -392,55 +413,36 @@ class LaunchControlGUI:
     def simulate_data(self):
         """
         Processes real-time data and simulates height/velocity.
-        Pressure is now read from self.current_pressure (set by serial thread).
+        Pressure, altitude, temperature, and GPS are now read from serial (set by serial thread).
+        Only velocity is calculated from altitude changes.
         """
         start_time = time.time()
         
         while self.simulation_running:
             current_time = time.time() - start_time
             
-            # --- PRESSURE LOGIC REMOVED ---
+            # Use altitude from serial data (self.current_altitude set by serial thread)
+            # Fallback to simulation during launch if needed
             if self.is_launching:
-                # Launch phase simulation (HEIGHT AND VELOCITY ONLY)
-                if current_time < 5:  # Boost phase
-                    # pressure = min(self.max_pressure, 200 + (current_time * 150)) # REMOVED
-                    height = current_time * current_time * 50
-                    velocity = current_time * 100
-                elif current_time < 15:  # Coast phase
-                    # pressure = max(0, self.max_pressure - (current_time - 5) * 100) # REMOVED
-                    height = 1250 + (current_time - 5) * 200 - (current_time - 5) ** 2 * 10
-                    velocity = max(0, 500 - (current_time - 5) * 50)
-                else:  # Descent phase
-                    # pressure = 0 # REMOVED
-                    height = max(0, self.apogee - (current_time - 15) * 100)
-                    velocity = -(current_time - 15) * 50
+                # During launch, use serial altitude if available, otherwise simulate
+                if self.current_altitude > 0:
+                    height = self.current_altitude
+                else:
+                    # Fallback simulation during launch
+                    if current_time < 5:  # Boost phase
+                        height = current_time * current_time * 50
+                    elif current_time < 15:  # Coast phase
+                        height = 1250 + (current_time - 5) * 200 - (current_time - 5) ** 2 * 10
+                    else:  # Descent phase
+                        height = max(0, self.apogee - (current_time - 15) * 100)
             else:
-                # Pre-launch simulation
-                # pressure = random.uniform(0, 50) # REMOVED
-                height = 0
-                velocity = 0
+                # Pre-launch: use serial altitude
+                height = self.current_altitude
             
-            # Simulate temperature
-            if self.is_launching:
-                # Temperature increases during launch, then decreases with altitude
-                self.temperature = 25 + current_time * 5 - max(0, height / 100) * 0.1
-            else:
-                self.temperature = random.uniform(20, 30)
+            # Temperature and GPS are now set by serial thread
+            # No simulation needed - they're updated directly in read_serial_data()
             
-            # Simulate GPS data
-            if self.is_launching:
-                # Simulate GPS movement during launch
-                base_lat = 37.7749  # Example: San Francisco
-                base_lon = -122.4194
-                # Small random movement during flight
-                self.gps_latitude = base_lat + random.uniform(-0.001, 0.001)
-                self.gps_longitude = base_lon + random.uniform(-0.001, 0.001)
-                self.gps_valid = True
-            else:
-                # Stationary GPS for pre-launch
-                self.gps_latitude = 37.7749
-                self.gps_longitude = -122.4194
-                self.gps_valid = True
+            # Calculate velocity from altitude changes
             
             # Update data
             # self.current_pressure = pressure # REMOVED (set by serial thread)
@@ -469,30 +471,30 @@ class LaunchControlGUI:
         """Update all display elements"""
         #Serial Port Error handle
         if self.serial_error:
-            self.pressure_label.config(text=self.serial_error, fg=self.colors['danger'])
+            self.pressure_label.config(text=f"pressure: {self.serial_error}", fg=self.colors['danger'])
         else:
-            self.pressure_label.config(text=f"{self.current_pressure:.0f} PSI", fg=self.colors['accent_cyan'])
+            self.pressure_label.config(text=f"pressure: {self.current_pressure:.0f}", fg=self.colors['accent_cyan'])
         
         # Update temperature
-        self.temperature_label.config(text=f"{self.temperature:.1f} °C", fg=self.colors['accent_orange'])
+        self.temperature_label.config(text=f"temperature: {self.temperature:.1f}", fg=self.colors['accent_orange'])
             
         # Update data labels
-        self.apogee_label.config(text=f"{self.apogee:.0f} ft")
-        self.time_label.config(text=f"{self.time_data[-1] if self.time_data else 0:.1f}s")
-        self.height_label.config(text=f"{self.height_data[-1] if self.height_data else 0:.0f} ft")
+        self.apogee_label.config(text=f"apogee: {self.apogee:.0f}")
+        self.time_label.config(text=f"time: {self.time_data[-1] if self.time_data else 0:.1f}")
+        self.height_label.config(text=f"altitude: {self.height_data[-1] if self.height_data else 0:.0f}")
         
         velocity = 0
         if len(self.height_data) > 1:
             velocity = (self.height_data[-1] - self.height_data[-2]) * 10  # Approximate velocity
-        self.velocity_label.config(text=f"{velocity:.0f} ft/s")
+        self.velocity_label.config(text=f"velocity: {velocity:.0f}")
         
         # Update GPS labels
         if self.gps_valid:
-            self.gps_lat_label.config(text=f"{self.gps_latitude:.6f}", fg=self.colors['accent_purple'])
-            self.gps_lon_label.config(text=f"{self.gps_longitude:.6f}", fg=self.colors['accent_purple'])
+            self.gps_lat_label.config(text=f"latitude: {self.gps_latitude:.6f}", fg=self.colors['accent_purple'])
+            self.gps_lon_label.config(text=f"longitude: {self.gps_longitude:.6f}", fg=self.colors['accent_purple'])
         else:
-            self.gps_lat_label.config(text="No Signal", fg=self.colors['text_secondary'])
-            self.gps_lon_label.config(text="No Signal", fg=self.colors['text_secondary'])
+            self.gps_lat_label.config(text="latitude: No Signal", fg=self.colors['text_secondary'])
+            self.gps_lon_label.config(text="longitude: No Signal", fg=self.colors['text_secondary'])
         
         # Update graphs
         self.update_graphs()
