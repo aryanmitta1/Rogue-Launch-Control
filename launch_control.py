@@ -34,7 +34,7 @@ from datetime import datetime
 import random
 
 # --- ADDED: Missing constants from test_launch_control_software.py ---
-PORT = 'COM14'
+PORT = '/dev/cu.usbmodem14101'
 BAUD_RATE = 9600
 # --- END ADDED ---
 
