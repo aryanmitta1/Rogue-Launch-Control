@@ -98,6 +98,9 @@ class LaunchControlGUI:
         self.setup_gui()
         self.setup_serial_reader()
         self.setup_data_simulation()
+
+        #Output Log File Name
+        self.output_log = open("output_log.txt", "w+")
         
     def setup_gui(self):
         """Set up the main GUI layout"""
@@ -344,7 +347,7 @@ class LaunchControlGUI:
     
     def setup_serial_reader(self):
         """Set up the serial data reading thread"""
-        self.simulation_running = True 
+        self.simulation_running = True
         self.serial_thread = threading.Thread(target=self.read_serial_data, daemon=True)
         self.serial_thread.start()
         print("Serial reader thread started.")
@@ -353,7 +356,7 @@ class LaunchControlGUI:
         """
         Read data from the serial port in a separate thread
         Expected format: pressure,altitude,temperature,latitude,longitude
-        Example: 6,6,8,8,7
+        Example: 6,6,8
         """
         print("--SERIAL WORKER ON--")
         try:
@@ -378,6 +381,10 @@ class LaunchControlGUI:
                                     #self.gps_latitude = float(values[3]) #Covered by other component (not lcs)
                                     #self.gps_longitude = float(values[4]) #Covered by other componenet (not lcs)
                                     self.gps_valid = True
+
+                                    ###Write to a output file!
+                                    self.output_log.write(f"{datetime.now()} : Pressure: {self.current_pressure}, Altitude: {self.current_altitude}, Temperature: {self.temperature}\n")
+                                    
                                     
                                     if self.serial_error: # Clear error if we get good data
                                         self.serial_error = None
@@ -423,6 +430,7 @@ class LaunchControlGUI:
         Pressure, altitude, temperature, and GPS are now read from serial (set by serial thread).
         Only velocity is calculated from altitude changes.
         """
+        
         start_time = time.time()
         
         while self.simulation_running:
@@ -682,6 +690,8 @@ class LaunchControlGUI:
             self.serial_thread.join(timeout=1)
         if hasattr(self, 'simulation_thread'):
             self.simulation_thread.join(timeout=1)
+            
+        self.output_log.close()
         self.root.destroy()
 
 def main():
