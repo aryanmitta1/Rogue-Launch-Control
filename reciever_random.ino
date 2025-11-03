@@ -20,7 +20,7 @@ void loop() {
       message = message.substring(startIdx + 1);
       message.trim();
       
-      // Print the clean message (e.g. 6,6,8,8,7)
+      // Print the clean message (e.g. 6,6,8,)
       Serial.print('<');
       Serial.print(message);
       Serial.println('>');
