@@ -33,10 +33,10 @@ import time
 from datetime import datetime
 import random
 
-# --- ADDED: Missing constants from test_launch_control_software.py ---
+#REPLACE WITH COM PORT OF RECEIVER ARDUINO
 PORT = '/dev/cu.usbmodem14101'
 BAUD_RATE = 9600
-# --- END ADDED ---
+#ADJUST BAUD RATE TO MATCH ARDUINO SERIAL OUT BAUD RATE
 
 class LaunchControlGUI:
     def __init__(self, root):
@@ -87,7 +87,7 @@ class LaunchControlGUI:
         self.launch_time = None
         self.is_launching = False
         self.simulation_running = False
-        self.serial_error = None # <<<<<<< ADDED: Missing variable
+        self.serial_error = None
         
         # GPS data
         self.gps_latitude = 0.0
@@ -96,7 +96,7 @@ class LaunchControlGUI:
         
         # Create GUI elements
         self.setup_gui()
-        self.setup_serial_reader() # <<<<<<< ADDED: Start serial thread
+        self.setup_serial_reader()
         self.setup_data_simulation()
         
     def setup_gui(self):
@@ -143,13 +143,14 @@ class LaunchControlGUI:
         self.setup_status_indicators(status_frame)
         
         # Control buttons
+        """
         control_frame = tk.Frame(right_column, bg=self.colors['bg_tertiary'], bd=2, relief=tk.FLAT,
                                  highlightbackground=self.colors['border_light'], highlightthickness=1)
         control_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
         tk.Label(control_frame, text="Launch Controls", font=self.fonts['subtitle'],
                 fg=self.colors['text_primary'], bg=self.colors['bg_tertiary']).pack(pady=(12, 8))
         self.setup_control_buttons(control_frame)
-        
+        """
         # Real-time data
         data_frame = tk.Frame(right_column, bg=self.colors['bg_tertiary'], bd=2, relief=tk.FLAT,
                              highlightbackground=self.colors['border_light'], highlightthickness=1)
@@ -202,6 +203,7 @@ class LaunchControlGUI:
 
     def setup_control_buttons(self, parent):
         """Set up control buttons"""
+        """
         button_frame = tk.Frame(parent, bg=self.colors['bg_tertiary'])
         button_frame.pack(pady=8, padx=15, fill=tk.X)
         
@@ -228,7 +230,7 @@ class LaunchControlGUI:
                                      relief=tk.FLAT, bd=0, cursor='hand2',
                                      padx=10, pady=12, state=tk.DISABLED, command=self.abort_launch)
         self.abort_button.pack(pady=6, fill=tk.X)
-
+    """
     def setup_data_displays(self, parent):
         """Set up real-time data displays"""
         data_grid = tk.Frame(parent, bg=self.colors['bg_tertiary'])
@@ -312,7 +314,7 @@ class LaunchControlGUI:
         gps_frame_outer = tk.Frame(parent, bg=self.colors['bg_tertiary'], bd=2, relief=tk.FLAT,
                                     highlightbackground=self.colors['border_light'], highlightthickness=1)
         gps_frame_outer.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
-        tk.Label(gps_frame_outer, text="GPS Location Map", font=self.fonts['subtitle'],
+        tk.Label(gps_frame_outer, text="TANK STATUS", font=self.fonts['subtitle'],
                 fg=self.colors['text_primary'], bg=self.colors['bg_tertiary']).pack(pady=(12, 5))
         
         self.setup_gps_map(gps_frame_outer)
@@ -350,8 +352,8 @@ class LaunchControlGUI:
     def read_serial_data(self):
         """
         Read data from the serial port in a separate thread
-        Expected format: <pressure,altitude,temperature,latitude,longitude>
-        Example: <6,6,8,8,7>
+        Expected format: pressure,altitude,temperature,latitude,longitude
+        Example: 6,6,8,8,7
         """
         print("--SERIAL WORKER ON--")
         try:
@@ -362,33 +364,35 @@ class LaunchControlGUI:
                         # Read a line from the Arduino
                         line = ser.readline().decode('utf-8').strip()
                         if line:
-                            # Parse format: <pressure,altitude,temperature,latitude,longitude>
-                            if line.startswith('<') and line.endswith('>'):
-                                # Remove angle brackets and split by comma
-                                data_str = line[1:-1]  # Remove '<' and '>'
+                            # UPDATED Parse format: pressure,altitude,temperature,latitude,longitude
+                            # Data is expected to come like the above as a string 
+                            # Split by Comma
+                    
                                 values = data_str.split(',')
                                 
-                                if len(values) == 5:
+                                if len(values) == 3:
                                     # Extract and update all variables
                                     self.current_pressure = float(values[0])
                                     self.current_altitude = float(values[1])
                                     self.temperature = float(values[2])
-                                    self.gps_latitude = float(values[3])
-                                    self.gps_longitude = float(values[4])
+                                    #self.gps_latitude = float(values[3]) #Covered by other component (not lcs)
+                                    #self.gps_longitude = float(values[4]) #Covered by other componenet (not lcs)
                                     self.gps_valid = True
                                     
                                     if self.serial_error: # Clear error if we get good data
                                         self.serial_error = None
+                                    else:
+                                        print(f"Serial data format error: Expected 3 values, got {len(values)} - Received: '{line}'")
                                 else:
-                                    print(f"Serial data format error: Expected 5 values, got {len(values)} - Received: '{line}'")
-                            else:
-                                # Fallback for old format (single value)
-                                try:
-                                    self.current_pressure = float(line)
-                                    if self.serial_error:
-                                        self.serial_error = None
-                                except ValueError:
-                                    print(f"Serial data format error: Invalid format - Received: '{line}'")
+                                # Report Errors to all 
+                                    try:
+                                        self.current_pressure = None
+                                        self.current_altitude = None
+                                        self.temperature = None
+                                        if self.serial_error:
+                                            self.serial_error = None
+                                    except ValueError:
+                                        print(f"Serial data format error: Invalid format - Received: '{line}'")
                     except (UnicodeDecodeError, ValueError) as e:
                         print(f"Serial data error: {e} - Received: '{line}'")
                 else:
@@ -396,7 +400,11 @@ class LaunchControlGUI:
                     time.sleep(0.01)
         except serial.SerialException as e:
             print(f"Serial Error: {e}")
-            self.serial_error = f"Error: Port {PORT} not found."
+            self.serial_error = f"Receiver Device Not Found!"
+            #Display -1 (unexpected value!) with the error
+            self.current_pressure = -1
+            self.current_altitude = -1
+            self.temperature = -1
         finally:
             if 'ser' in locals() and ser.is_open:
                 ser.close()
@@ -422,7 +430,8 @@ class LaunchControlGUI:
             current_time = time.time() - start_time
             
             # Use altitude from serial data (self.current_altitude set by serial thread)
-            # Fallback to simulation during launch if needed
+            # LCS not responsible for sending signals, so self.is_launching check removed
+            """
             if self.is_launching:
                 # During launch, use serial altitude if available, otherwise simulate
                 if self.current_altitude > 0:
@@ -436,24 +445,21 @@ class LaunchControlGUI:
                     else:  # Descent phase
                         height = max(0, self.apogee - (current_time - 15) * 100)
             else:
-                # Pre-launch: use serial altitude
-                height = self.current_altitude
+            """
+            #Always using Serial Altitude
+            height = self.current_altitude
             
             # Temperature and GPS are now set by serial thread
             # No simulation needed - they're updated directly in read_serial_data()
-            
             # Calculate velocity from altitude changes
-            
             # Update data
-            # self.current_pressure = pressure # REMOVED (set by serial thread)
+           
             if height > self.apogee:
                 self.apogee = height
             
             # Store data for graphs
             self.time_data.append(current_time)
-            # --- KEY CHANGE: Use pressure from serial thread ---
             self.pressure_data.append(self.current_pressure)
-            # --- END KEY CHANGE ---
             self.height_data.append(height)
             
             # Keep only last 100 data points
@@ -471,22 +477,26 @@ class LaunchControlGUI:
         """Update all display elements"""
         #Serial Port Error handle
         if self.serial_error:
-            self.pressure_label.config(text=f"pressure: {self.serial_error}", fg=self.colors['danger'])
+            #Pressure Altitude and Temperature (The Data Readings) all get error text
+            error_text = "NULL - Check Receiver Connection"
+            self.pressure_label.config(text=f"pressure: {error_text}", fg=self.colors['danger'])
+            self.temperature_label.config(text=f"temperature: {error_text}", fg=self.colors['danger'])
+            self.height_label.config(text=f"altitude: {error_text}", fg=self.colors['danger'])
+
         else:
-            self.pressure_label.config(text=f"pressure: {self.current_pressure:.0f}", fg=self.colors['accent_cyan'])
         
-        # Update temperature
-        self.temperature_label.config(text=f"temperature: {self.temperature:.1f}", fg=self.colors['accent_orange'])
+            # Update temperature
+            self.temperature_label.config(text=f"temperature: {self.temperature:.1f}", fg=self.colors['accent_orange'])
             
-        # Update data labels
-        self.apogee_label.config(text=f"apogee: {self.apogee:.0f}")
-        self.time_label.config(text=f"time: {self.time_data[-1] if self.time_data else 0:.1f}")
-        self.height_label.config(text=f"altitude: {self.height_data[-1] if self.height_data else 0:.0f}")
+            # Update data labels
+            self.apogee_label.config(text=f"apogee: {self.apogee:.0f}")
+            self.time_label.config(text=f"time: {self.time_data[-1] if self.time_data else 0:.1f}")
+            self.height_label.config(text=f"altitude: {self.height_data[-1] if self.height_data else 0:.0f}")
         
-        velocity = 0
-        if len(self.height_data) > 1:
-            velocity = (self.height_data[-1] - self.height_data[-2]) * 10  # Approximate velocity
-        self.velocity_label.config(text=f"velocity: {velocity:.0f}")
+            velocity = 0
+            if len(self.height_data) > 1:
+                velocity = (self.height_data[-1] - self.height_data[-2]) * 10  # Approximate velocity
+            self.velocity_label.config(text=f"velocity: {velocity:.0f}")
         
         # Update GPS labels
         if self.gps_valid:
@@ -625,12 +635,13 @@ class LaunchControlGUI:
         alt_color = self.colors['success']
         self.status_lights["ALTITUDE"][0].itemconfig(self.status_lights["ALTITUDE"][1], fill=alt_color)
 
-        # Armed light
-        armed_color = self.colors['success'] if self.arm_button['state'] == tk.DISABLED else self.colors['text_muted']
-        self.status_lights["ARMED"][0].itemconfig(self.status_lights["ARMED"][1], fill=armed_color)
-            
+        # Armed light || COMMENTED OUT FOR REMOVAL OF BUTTONS
+        #armed_color = self.colors['success'] if self.arm_button['state'] == tk.DISABLED else self.colors['text_muted']
+        #self.status_lights["ARMED"][0].itemconfig(self.status_lights["ARMED"][1], fill=armed_color)
+
+    """
     def arm_system(self):
-        """Arm the launch system"""
+        "Arm the System" 
         if messagebox.askyesno("Arm System", "Are you sure you want to arm the launch system?"):
             self.arm_button.config(state=tk.DISABLED, bg='#3d3d3d', fg=self.colors['text_secondary'])
             self.launch_button.config(state=tk.NORMAL, bg=self.colors['danger'], fg='#ffffff',
@@ -638,9 +649,10 @@ class LaunchControlGUI:
             self.abort_button.config(state=tk.NORMAL, bg='#505050', fg=self.colors['text_secondary'],
                                     activebackground='#606060')
             print("System ARMED.")
-            
+    """
+    """
     def launch_rocket(self):
-        """Launch the rocket"""
+        "Launch the rocket"
         if self.arm_button['state'] == tk.DISABLED:
             self.is_launching = True
             self.launch_time = datetime.now()
@@ -649,9 +661,10 @@ class LaunchControlGUI:
             self.abort_button.config(state=tk.NORMAL, bg=self.colors['warning'], fg='#000000',
                                     activebackground='#fbbf24')
             messagebox.showinfo("Launch Initiated", "Rocket launch sequence initiated!")
-            
+     """
+    """
     def abort_launch(self):
-        """Abort the launch"""
+        "Abort the Launch"
         if self.is_launching or self.arm_button['state'] == tk.DISABLED:
             self.is_launching = False
             self.launch_button.config(state=tk.DISABLED, bg='#404040', fg=self.colors['text_secondary'])
@@ -659,7 +672,7 @@ class LaunchControlGUI:
             self.arm_button.config(state=tk.NORMAL, bg=self.colors['warning'], fg='#000000',
                                   activebackground='#fbbf24')
             messagebox.showwarning("System Disarmed", "System has been disarmed.")
-            
+     """       
     def on_closing(self):
         """Handle application closing"""
         self.simulation_running = False # This flag stops both threads
