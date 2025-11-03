@@ -100,7 +100,7 @@ class LaunchControlGUI:
         self.setup_data_simulation()
 
         #Output Log File Name
-        self.output_log = open("output_log.txt", "w+")
+        self.output_log = open("output_log.txt", "a")
         
     def setup_gui(self):
         """Set up the main GUI layout"""
