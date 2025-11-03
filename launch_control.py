@@ -34,7 +34,7 @@ from datetime import datetime
 import random
 
 #REPLACE WITH COM PORT OF RECEIVER ARDUINO
-PORT = '/dev/cu.usbmodem14101'
+PORT = 'COM5'
 BAUD_RATE = 9600
 #ADJUST BAUD RATE TO MATCH ARDUINO SERIAL OUT BAUD RATE
 
@@ -368,7 +368,7 @@ class LaunchControlGUI:
                             # Data is expected to come like the above as a string 
                             # Split by Comma
                     
-                                values = data_str.split(',')
+                                values = line.split(',')
                                 
                                 if len(values) == 3:
                                     # Extract and update all variables
@@ -381,11 +381,10 @@ class LaunchControlGUI:
                                     
                                     if self.serial_error: # Clear error if we get good data
                                         self.serial_error = None
-                                    else:
-                                        print(f"Serial data format error: Expected 3 values, got {len(values)} - Received: '{line}'")
                                 else:
                                 # Report Errors to all 
                                     try:
+                                        print(f"Serial data format error: Expected 3 values, got {len(values)} - Received: '{line}'")
                                         self.current_pressure = None
                                         self.current_altitude = None
                                         self.temperature = None
@@ -484,11 +483,13 @@ class LaunchControlGUI:
             self.height_label.config(text=f"altitude: {error_text}", fg=self.colors['danger'])
 
         else:
-        
+            # Pressure LABEL update
+            self.pressure_label.config(text=f"pressure: {self.current_pressure:.1f}", fg=self.colors['accent_cyan'])
+            
             # Update temperature
             self.temperature_label.config(text=f"temperature: {self.temperature:.1f}", fg=self.colors['accent_orange'])
             
-            # Update data labels
+            # Update other data labels
             self.apogee_label.config(text=f"apogee: {self.apogee:.0f}")
             self.time_label.config(text=f"time: {self.time_data[-1] if self.time_data else 0:.1f}")
             self.height_label.config(text=f"altitude: {self.height_data[-1] if self.height_data else 0:.0f}")
