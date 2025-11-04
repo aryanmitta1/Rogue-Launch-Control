@@ -535,7 +535,7 @@ class LaunchControlGUI:
             self.ax_pressure.plot(self.time_data, self.pressure_data, color=self.colors['accent_cyan'], linewidth=2.5, label='Pressure')
             # Fill area under curve for modern look
             self.ax_pressure.fill_between(self.time_data, self.pressure_data, alpha=0.3, color=self.colors['accent_cyan'])
-        
+        self.ax_pressure.set_ylim(-1, 1000) #fixed graph axis for the pressure
         self.ax_pressure.set_title("Pressure", color=self.colors['text_primary'], fontsize=13, fontweight='bold')
         self.ax_pressure.set_xlabel("Time (s)", color=self.colors['text_secondary'], fontsize=10)
         self.ax_pressure.set_ylabel("PSI", color=self.colors['text_secondary'], fontsize=10)
