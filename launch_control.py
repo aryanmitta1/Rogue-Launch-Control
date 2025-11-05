@@ -556,7 +556,7 @@ class LaunchControlGUI:
             self.ax_height.plot(self.time_data, self.height_data, color=self.colors['accent_purple'], linewidth=2.5, label='Altitude')
             # Fill area under curve
             self.ax_height.fill_between(self.time_data, self.height_data, alpha=0.3, color=self.colors['accent_purple'])
-        
+        self.ax_height.set_ylim(-1, 1500) #fixed graph y axis for height to 1500
         self.ax_height.set_title("Altitude", color=self.colors['text_primary'], fontsize=13, fontweight='bold')
         self.ax_height.set_xlabel("Time (s)", color=self.colors['text_secondary'], fontsize=10)
         self.ax_height.set_ylabel("Feet", color=self.colors['text_secondary'], fontsize=10)
