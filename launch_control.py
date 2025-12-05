@@ -355,8 +355,8 @@ class LaunchControlGUI:
     def read_serial_data(self):
         """
         Read data from the serial port in a separate thread
-        Expected format: pressure,altitude,temperature,latitude,longitude
-        Example: 6,6,8
+        Expected format: pressure,altitude,temperature
+        Example: 14.7, 100.5, 25.3
         """
         print("--SERIAL WORKER ON--")
         try:
@@ -367,38 +367,34 @@ class LaunchControlGUI:
                         # Read a line from the Arduino
                         line = ser.readline().decode('utf-8').strip()
                         if line:
-                            # UPDATED Parse format: pressure,altitude,temperature,latitude,longitude
-                            # Data is expected to come like the above as a string 
-                            # Split by Comma
-                    
-                                values = line.split(',')
+                            # Parse format: pressure,altitude,temperature
+                            if ',' in line:
+                                # Split by comma and strip whitespace
+                                values = [part.strip() for part in line.split(',')]
                                 
                                 if len(values) == 3:
-                                    # Extract and update all variables
+                                    # Extract and update all variables in order: pressure, altitude, temperature
                                     self.current_pressure = float(values[0])
                                     self.current_altitude = float(values[1])
                                     self.temperature = float(values[2])
-                                    #self.gps_latitude = float(values[3]) #Covered by other component (not lcs)
-                                    #self.gps_longitude = float(values[4]) #Covered by other componenet (not lcs)
-                                    self.gps_valid = True
+                                    # GPS data not available in this format
+                                    self.gps_valid = False
 
-                                    ###Write to a output file!
+                                    # Write to output file
                                     self.output_log.write(f"{datetime.now()} : Pressure: {self.current_pressure}, Altitude: {self.current_altitude}, Temperature: {self.temperature}\n")
-                                    
                                     
                                     if self.serial_error: # Clear error if we get good data
                                         self.serial_error = None
                                 else:
-                                # Report Errors to all 
-                                    try:
-                                        print(f"Serial data format error: Expected 3 values, got {len(values)} - Received: '{line}'")
-                                        self.current_pressure = None
-                                        self.current_altitude = None
-                                        self.temperature = None
-                                        if self.serial_error:
-                                            self.serial_error = None
-                                    except ValueError:
-                                        print(f"Serial data format error: Invalid format - Received: '{line}'")
+                                    print(f"Serial data format error: Expected 3 values, got {len(values)} - Received: '{line}'")
+                            else:
+                                # Fallback for old format (single value)
+                                try:
+                                    self.current_pressure = float(line.strip())
+                                    if self.serial_error:
+                                        self.serial_error = None
+                                except ValueError:
+                                    print(f"Serial data format error: Invalid format - Received: '{line}'")
                     except (UnicodeDecodeError, ValueError) as e:
                         print(f"Serial data error: {e} - Received: '{line}'")
                 else:
