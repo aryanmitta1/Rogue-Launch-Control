@@ -34,7 +34,7 @@ from datetime import datetime
 import random
 
 #REPLACE WITH COM PORT OF RECEIVER ARDUINO
-PORT = 'COM5'
+PORT = 'COM11'
 BAUD_RATE = 9600
 #ADJUST BAUD RATE TO MATCH ARDUINO SERIAL OUT BAUD RATE
 
@@ -373,10 +373,11 @@ class LaunchControlGUI:
                                 values = [part.strip() for part in line.split(',')]
                                 
                                 if len(values) == 3:
-                                    # Extract and update all variables in order: pressure, altitude, temperature
-                                    self.current_pressure = float(values[0])
-                                    self.current_altitude = float(values[1])
+                                    # Extract and update all variables in order: altitude, pressure, temperature
+                                    self.current_pressure = float(values[1])
+                                    self.current_altitude = float(values[0])
                                     self.temperature = float(values[2])
+                                    
                                     # GPS data not available in this format
                                     self.gps_valid = False
 
