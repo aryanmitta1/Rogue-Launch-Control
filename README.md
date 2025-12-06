@@ -1,13 +1,12 @@
 # Rogue Launch Control
 
-A comprehensive GUI application for rocket launch control with real-time monitoring and simulation capabilities.
+A comprehensive GUI application for rocket launch control with real-time monitoring and smart display.
 
 ## Features
 
-GUI can monitor pressure in real time with a live graph . There is a display for apogee, height, velocity, and flight time as well (let me know if I should add more). There is a color-coded status for system readiness. 10Hz update frequency (100ms intervals). Currently, Pressure, Altitude, and Temperature are implemented to be read from a serial stream (which would be a receiver arduino device). GPS display potentially may be implemented at a later point. 
+GUI can monitor pressure in real time with a live graph . There is a display for apogee, height, velocity, and data collection runtime. There is a color-coded status for system readiness. 10Hz update frequency (100ms intervals). Currently, Pressure, Altitude, and Temperature are implemented to be read from a serial stream (which would be a receiver arduino device). GPS display potentially may be implemented at a later point. 
 
-This python program expects a specific format of Serial input from a receiver microcontroller which actually sends and receives data from the rocket.
-(ex: OUTPUT: 100,200,300 where the first value gets taken as pressure, second and third as coordinates). This program is reponsible for parsing the receiver's serial output and displaying the telemtry data nicely.
+This python app works very closely with an arduino receiver and transmitter (which both use XBees) and their sketches are located in this repo as well. 
 
 Features:
 - Pressure vs Time graph
